@@ -40,7 +40,7 @@ import Blog from "./pages/Blog";
 import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
 import BlogPost from "./pages/BlogPost";
-import PrivacyPolicy from "./pages/privacypolicy";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 
 function App() {
