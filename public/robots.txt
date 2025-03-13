@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+Disallow: /faq
+Disallow: /contact
+Disallow: /privacy-policy
+Disallow: /terms-of-service
+
+Sitemap: https://snowdaycalculate.online/sitemap.xml
