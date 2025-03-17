@@ -266,76 +266,149 @@ const SnowDayTool = () => {
   const [snowProbability, setSnowProbability] = useState(null);
   const [region, setRegion] = useState("");
 
+  const [loading, setLoading] = useState(false); // ✅ Add loading state
+
+
   const fetchWeather = async () => {
     if (!zip) return;
+    
+    setLoading(true); // ✅ Show "Calculating..." on button
+
     try {
-      const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?postalcode=${zip}&country=US&format=json`);
-      const geoData = await geoRes.json();
-      if (!geoData.length) throw new Error("Invalid ZIP code.");
-      const { lat, lon, display_name } = geoData[0];
-      setRegion(display_name);
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?postalcode=${zip}&country=US&format=json`);
+        if (!geoRes.ok) throw new Error("Failed to fetch location data.");
 
-      const weatherRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
-      if (!weatherRes.ok) throw new Error("Weather API request failed.");
-      const weatherJson = await weatherRes.json();
-      
-      const gridpointUrl = weatherJson.properties.forecastGridData;
-      const gridpointRes = await fetch(gridpointUrl);
-      if (!gridpointRes.ok) throw new Error("Gridpoint data not available.");
-      const gridpointData = await gridpointRes.json();
+        const geoData = await geoRes.json();
+        if (!geoData.length) throw new Error("Invalid ZIP code.");
+        
+        const { lat, lon, display_name } = geoData[0];
+        setRegion(display_name);
 
-      const humidityValues = gridpointData.properties.relativeHumidity.values;
-      const latestHumidity = humidityValues.length > 0 ? humidityValues[0].value : "Not Available";
+        const weatherRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
+        if (!weatherRes.ok) throw new Error("Weather API request failed.");
+        
+        const weatherJson = await weatherRes.json();
+        
+        const gridpointUrl = weatherJson.properties.forecastGridData;
+        const gridpointRes = await fetch(gridpointUrl);
+        if (!gridpointRes.ok) throw new Error("Gridpoint data not available.");
+        
+        const gridpointData = await gridpointRes.json();
+        const humidityValues = gridpointData.properties.relativeHumidity?.values || [];
+        const latestHumidity = humidityValues.length > 0 ? humidityValues[0].value : "Not Available";
 
-      const forecastUrl = weatherJson.properties.forecast;
-      const forecastRes = await fetch(forecastUrl);
-      if (!forecastRes.ok) throw new Error("Forecast data not available.");
-      const forecastData = await forecastRes.json();
+        const forecastUrl = weatherJson.properties.forecast;
+        const forecastRes = await fetch(forecastUrl);
+        if (!forecastRes.ok) throw new Error("Forecast data not available.");
 
-      const periods = forecastData.properties.periods;
-      if (!periods || periods.length === 0) throw new Error("No forecast available.");
+        const forecastData = await forecastRes.json();
+        const periods = forecastData.properties.periods;
+        if (!periods || periods.length === 0) throw new Error("No forecast available.");
 
-      let maxSnowChance = 0;
-      let selectedPeriod = null;
+        let maxSnowChance = 0;
+        let selectedPeriod = null;
 
-      for (let period of periods) {
-        const forecastText = period.shortForecast.toLowerCase();
-        const isSnow = forecastText.includes("snow") || forecastText.includes("flurries") || forecastText.includes("wintry mix");
+        for (let period of periods) {
+            const forecastText = period.shortForecast.toLowerCase();
+            const isSnow = forecastText.includes("snow") || forecastText.includes("flurries") || forecastText.includes("wintry mix");
 
-        if (isSnow && period.probabilityOfPrecipitation?.value !== null) {
-          if (period.probabilityOfPrecipitation.value > maxSnowChance) {
-            maxSnowChance = period.probabilityOfPrecipitation.value;
-            selectedPeriod = period;
-          }
+            if (isSnow && period.probabilityOfPrecipitation?.value !== null) {
+                if (period.probabilityOfPrecipitation.value > maxSnowChance) {
+                    maxSnowChance = period.probabilityOfPrecipitation.value;
+                    selectedPeriod = period;
+                }
+            }
         }
-      }
 
-      if (selectedPeriod) {
         setWeatherData({
-          temperature: selectedPeriod.temperature || "N/A",
-          humidity: `${latestHumidity}%`,
-          windSpeed: selectedPeriod.windSpeed || "N/A",
-          shortForecast: selectedPeriod.shortForecast || "No forecast available",
-          dateTime: new Date(selectedPeriod.startTime).toLocaleString(),
+            temperature: selectedPeriod?.temperature || "N/A",
+            humidity: `${latestHumidity}%`,
+            windSpeed: selectedPeriod?.windSpeed || "N/A",
+            shortForecast: selectedPeriod?.shortForecast || "No forecast available",
+            dateTime: selectedPeriod ? new Date(selectedPeriod.startTime).toLocaleString() : "N/A",
         });
-      } else {
-        setWeatherData({
-          temperature: periods[0].temperature || "N/A",
-          humidity: `${latestHumidity}%`,
-          windSpeed: periods[0].windSpeed || "N/A",
-          shortForecast: periods[0].shortForecast || "No forecast available",
-          dateTime: new Date(periods[0].startTime).toLocaleString(),
-        });
-      }
 
-      setSnowProbability(maxSnowChance);
+        setSnowProbability(maxSnowChance);
 
     } catch (error) {
-      console.error("Error fetching weather data:", error);
-      setWeatherData(null);
-      setSnowProbability(null);
+        console.error("Error fetching weather data:", error);
+        setWeatherData(null);
+        setSnowProbability(null);
+    } finally {
+        setLoading(false); // ✅ Restore "Calculate" button after fetching data
     }
-  };
+};
+
+  // const fetchWeather = async () => {
+  //   if (!zip) return;
+  //   try {
+  //     const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?postalcode=${zip}&country=US&format=json`);
+  //     const geoData = await geoRes.json();
+  //     if (!geoData.length) throw new Error("Invalid ZIP code.");
+  //     const { lat, lon, display_name } = geoData[0];
+  //     setRegion(display_name);
+
+  //     const weatherRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
+  //     if (!weatherRes.ok) throw new Error("Weather API request failed.");
+  //     const weatherJson = await weatherRes.json();
+      
+  //     const gridpointUrl = weatherJson.properties.forecastGridData;
+  //     const gridpointRes = await fetch(gridpointUrl);
+  //     if (!gridpointRes.ok) throw new Error("Gridpoint data not available.");
+  //     const gridpointData = await gridpointRes.json();
+
+  //     const humidityValues = gridpointData.properties.relativeHumidity.values;
+  //     const latestHumidity = humidityValues.length > 0 ? humidityValues[0].value : "Not Available";
+
+  //     const forecastUrl = weatherJson.properties.forecast;
+  //     const forecastRes = await fetch(forecastUrl);
+  //     if (!forecastRes.ok) throw new Error("Forecast data not available.");
+  //     const forecastData = await forecastRes.json();
+
+  //     const periods = forecastData.properties.periods;
+  //     if (!periods || periods.length === 0) throw new Error("No forecast available.");
+
+  //     let maxSnowChance = 0;
+  //     let selectedPeriod = null;
+
+  //     for (let period of periods) {
+  //       const forecastText = period.shortForecast.toLowerCase();
+  //       const isSnow = forecastText.includes("snow") || forecastText.includes("flurries") || forecastText.includes("wintry mix");
+
+  //       if (isSnow && period.probabilityOfPrecipitation?.value !== null) {
+  //         if (period.probabilityOfPrecipitation.value > maxSnowChance) {
+  //           maxSnowChance = period.probabilityOfPrecipitation.value;
+  //           selectedPeriod = period;
+  //         }
+  //       }
+  //     }
+
+  //     if (selectedPeriod) {
+  //       setWeatherData({
+  //         temperature: selectedPeriod.temperature || "N/A",
+  //         humidity: `${latestHumidity}%`,
+  //         windSpeed: selectedPeriod.windSpeed || "N/A",
+  //         shortForecast: selectedPeriod.shortForecast || "No forecast available",
+  //         dateTime: new Date(selectedPeriod.startTime).toLocaleString(),
+  //       });
+  //     } else {
+  //       setWeatherData({
+  //         temperature: periods[0].temperature || "N/A",
+  //         humidity: `${latestHumidity}%`,
+  //         windSpeed: periods[0].windSpeed || "N/A",
+  //         shortForecast: periods[0].shortForecast || "No forecast available",
+  //         dateTime: new Date(periods[0].startTime).toLocaleString(),
+  //       });
+  //     }
+
+  //     setSnowProbability(maxSnowChance);
+
+  //   } catch (error) {
+  //     console.error("Error fetching weather data:", error);
+  //     setWeatherData(null);
+  //     setSnowProbability(null);
+  //   }
+  // };
 
   return (
     <>
@@ -353,7 +426,17 @@ const SnowDayTool = () => {
         <p className="mt-2 text-gray-700">Enter your ZIP code to check snow day probability and school closure chances.</p>
         <div className="mt-4 flex justify-center gap-2">
           <input type="text" placeholder="Enter ZIP code" value={zip} onChange={(e) => setZip(e.target.value)} className="border p-2 rounded w-40 text-center" />
-          <button onClick={fetchWeather} className="px-4 py-2 bg-[hsl(213,94%,67%)] text-white rounded hover:bg-[hsl(213,94%,60%)] cursor-pointer transition">Calculate</button>
+          {/* <button onClick={fetchWeather} className="px-4 py-2 bg-[hsl(213,94%,67%)] text-white rounded hover:bg-[hsl(213,94%,60%)] cursor-pointer transition">Calculate</button> */}
+          <button
+    onClick={fetchWeather}
+    disabled={loading} // ✅ Prevent multiple clicks while loading
+    className={`px-4 py-2 rounded transition ${
+        loading ? "bg-gray-400 cursor-not-allowed" : "bg-[hsl(213,94%,67%)] hover:bg-[hsl(213,94%,60%)]"
+    } text-white`}
+>
+    {loading ? "Calculating..." : "Calculate"} {/* ✅ Dynamic text */}
+</button>
+
         </div>
         
         {weatherData && (
@@ -384,17 +467,17 @@ const SnowDayTool = () => {
       {/* SEO Blog Content Section */}
       <div className="mt-10 bg-gray-100 p-10 text-left space-y-6">
         <h2 className="text-3xl font-bold text-[hsl(213,94%,67%)]">What is Snow Day Calculator?</h2>
-        <p>The <strong>Snow Day Calculator</strong> is an online tool that predicts the chances of school closures due to snowfall. It analyzes real-time weather data, including snowfall probability, temperature, and wind speed, to estimate whether schools will close in your area.
+        <p>The <strong>Snow Day Calculator</strong> is an online tool that predicts the chances of school closures due to snowfall. It analyzes real-time weather data like snowfall probability, temperature and wind speed to project whether your local schools will close. 
 
-By entering your ZIP code, you can get instant results and know the likelihood of a snow day. Parents, students, and teachers can use this snow day predictor to plan ahead and avoid early morning confusion.</p>
+        Instant results and chances of a snow day when you enter your ZIP code. Parents, students and teachers can reference this snow day predictor to plan and avoid the morning scramble.</p>
         
         <h3 className="text-2xl font-semibold text-[hsl(213,94%,67%)]">How Accurate is the Snow Day Calculator?</h3>
         <p>A common question is, "How accurate is the Snow Day Calculator?" Our <strong> snow day predictor calculator </strong> ensures high accuracy by:<br></br>
-✅ Fetching live weather forecasts from the National Weather Service (NWS) <br></br>
-✅ Analyzing historical data and weather patterns<br></br>
-✅ Factoring in regional school closing tendencies<br></br>
+✅ Pulls live weather predictions from the National Weather Service (NWS)<br></br>
+✅ Analyzing past statistics and weather trends<br></br>
+✅ Taking into consideration regional school closing patterns<br></br>
 
-While no tool can guarantee 100% accuracy, our snow day chance calculator provides highly reliable estimates based on the latest weather reports and trends.</p>
+No tool can be 100% accurate, of course, but our snow day chance calculator provides very reliable estimates based on the latest weather reports and trends.</p>
 
 <h3 className="text-2xl font-semibold text-[hsl(213,94%,67%)]">How to use Snow Day Calculator ?</h3>
         <p>Using our snow day predictor calculator is quick and easy:<br></br>
